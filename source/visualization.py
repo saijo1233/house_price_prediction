@@ -1,74 +1,79 @@
 import matplotlib.pyplot as plt
+import seaborn as sns
 import numpy as np
 import pandas as pd
+from sklearn.ensemble import StackingRegressor
 
-def plot_predictions(y_val, pred_val, model_name="Модель"):
-    """
-    Визуализирует реальные vs предсказанные цены на валидационной выборке.
+def plot_regression_analysis(y_val, pred_val, model_name="Stacking Model"):
+    real_price = np.expm1(y_val)
+    pred_price = np.expm1(pred_val)
+    residuals = real_price - pred_price
+
+    fig, ax = plt.subplots(1, 2, figsize=(16, 6))
+
+    sns.scatterplot(x=real_price, y=pred_price, alpha=0.6, ax=ax[0], color='teal')
+    ax[0].plot([real_price.min(), real_price.max()], [real_price.min(), real_price.max()], 
+               'r--', lw=2)
+    ax[0].set_title(f'{model_name}: Реальные vs Предсказанные цены', fontsize=14)
+    ax[0].set_xlabel('Реальная цена ($)')
+    ax[0].set_ylabel('Предсказанная цена ($)')
+
+    sns.histplot(residuals, kde=True, ax=ax[1], color='indianred')
+    ax[1].set_title('Распределение остатков (Ошибок)', fontsize=14)
+    ax[1].set_xlabel('Ошибка ($)')
     
-    Parameters:
-    y_val (pd.Series or np.array): Реальные значения (в логарифмированном масштабе).
-    pred_val (np.array): Предсказанные значения (в логарифмированном масштабе).
-    model_name (str): Название модели для заголовка графика.
-    """
-    real_price = np.expm1(y_val)      # Обратный логарифм — реальные цены в $
-    pred_price = np.expm1(pred_val)   # Предсказанные цены в $
-
-    plt.figure(figsize=(10, 8))
-    plt.scatter(real_price, pred_price, alpha=0.6, color='steelblue', edgecolor='k')
-    min_val = min(real_price.min(), pred_price.min())
-    max_val = max(real_price.max(), pred_price.max())
-    plt.plot([min_val, max_val], [min_val, max_val], 'r--', lw=2, label='Идеальная линия')
-    plt.xlabel('Реальная цена ($)', fontsize=12)
-    plt.ylabel('Предсказанная цена ($)', fontsize=12)
-    plt.title(f'Реальные vs Предсказанные цены\nЛучшая модель: {model_name}', fontsize=14)
-    plt.legend()
-    plt.grid(True, alpha=0.3)
     plt.tight_layout()
     plt.show()
 
-
 def plot_feature_importance(model, feature_names, model_name="Модель", top_n=20):
-    """
-    Визуализирует топ-N важных признаков в зависимости от типа модели.
-    
-    Parameters:
-    model: Обученная модель (Ridge, LightGBM и т.д.).
-    feature_names (array-like): Имена признаков после предобработки.
-    model_name (str): Название модели для заголовка.
-    top_n (int): Количество отображаемых признаков.
-    """
-    if hasattr(model, "feature_importances_"):
-        # Для древовидных моделей (LightGBM, RandomForest и т.д.)
-        importances = model.feature_importances_
-        title = f'Топ-{top_n} важных признаков (feature importance)'
-        xlabel = 'Важность признака'
-        color = 'skyblue'
-    elif hasattr(model, "coef_"):
-        # Для линейных моделей (Ridge, Lasso, LinearRegression)
-        importances = np.abs(model.coef_)
-        title = f'Топ-{top_n} признаков по |коэффициенту|'
-        xlabel = 'Абсолютное значение коэффициента'
-        color = 'coral'
-    else:
-        raise AttributeError(f"Модель {type(model).__name__} не поддерживает ни feature_importances_, ни coef_")
+    importances = None
+    actual_model_name = model_name
 
-    # Создаём DataFrame и сортируем
+    if isinstance(model, StackingRegressor):
+        for name, est in model.named_estimators_.items():
+            if hasattr(est, "feature_importances_"):
+                importances = est.feature_importances_
+                actual_model_name = f"{model_name} (Base: {name})"
+                break
+    
+    elif hasattr(model, "feature_importances_"):
+        importances = model.feature_importances_
+    elif hasattr(model, "coef_"):
+        importances = np.abs(model.coef_)
+    
+    if importances is None:
+        print(f"Модель {type(model).__name__} не поддерживает визуализацию важности напрямую.")
+        return
+
+    # Создаем DataFrame
     importance_df = pd.DataFrame({
         'Признак': feature_names,
         'Важность': importances
     }).sort_values(by='Важность', ascending=False).head(top_n)
 
-    # График
     plt.figure(figsize=(10, 8))
-    plt.barh(range(len(importance_df)), importance_df['Важность'], color=color)
-    plt.yticks(range(len(importance_df)), importance_df['Признак'])
-    plt.xlabel(xlabel, fontsize=12)
-    plt.title(f'{title}\n{model_name}', fontsize=14)
-    plt.grid(axis='x', alpha=0.3)
+    
+    sns.barplot(
+        x='Важность', 
+        y='Признак', 
+        data=importance_df, 
+        palette='viridis',
+        hue='Признак',    # Присваиваем y переменной hue
+        legend=False      # Отключаем легенду, так как она здесь не нужна
+    )
+    
+    plt.title(f'Топ-{top_n} важных признаков\n{actual_model_name}', fontsize=14)
+    plt.grid(axis='x', linestyle='--', alpha=0.7)
     plt.tight_layout()
     plt.show()
 
-    # Выводим таблицу
-    print(f"Топ-{top_n} признаков для {model_name}:")
-    print(importance_df.reset_index(drop=True))
+def plot_price_distribution(df, column='SalePrice'):
+    fig, ax = plt.subplots(1, 2, figsize=(16, 5))
+
+    sns.histplot(df[column], kde=True, ax=ax[0], color='blue')
+    ax[0].set_title(f'Распределение {column} (Original)', fontsize=14)
+
+    sns.histplot(np.log1p(df[column]), kde=True, ax=ax[1], color='green')
+    ax[1].set_title(f'Распределение {column} (Log Transformed)', fontsize=14)
+    
+    plt.show()

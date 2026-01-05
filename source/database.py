@@ -1,4 +1,6 @@
 from sqlalchemy import create_engine
+from pandas import read_sql
+import pandas as pd
 from dotenv import load_dotenv
 import os
 
@@ -15,8 +17,11 @@ def get_engine():
     return engine
 
 def load_data():
-    from pandas import read_sql
     engine = get_engine()
-    train_df = read_sql("SELECT * FROM train", engine)
-    test_df = read_sql("SELECT * FROM test", engine)
+    try:
+        train_df = pd.read_csv('C:/Users/User/Desktop/project/data/train.csv', encoding='cp1251')
+        test_df = pd.read_csv('C:/Users/User/Desktop/project/data/test.csv', encoding='cp1251')
+    except UnicodeDecodeError:
+        train_df = pd.read_csv('C:/Users/User/Desktop/project/data/train.csv', encoding='utf-8-sig')
+        test_df = pd.read_csv('C:/Users/User/Desktop/project/data/test.csv', encoding='utf-8-sig')
     return train_df, test_df
