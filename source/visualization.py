@@ -45,7 +45,6 @@ def plot_feature_importance(model, feature_names, model_name="Модель", top
         print(f"Модель {type(model).__name__} не поддерживает визуализацию важности напрямую.")
         return
 
-    # Создаем DataFrame
     importance_df = pd.DataFrame({
         'Признак': feature_names,
         'Важность': importances
@@ -58,8 +57,8 @@ def plot_feature_importance(model, feature_names, model_name="Модель", top
         y='Признак', 
         data=importance_df, 
         palette='viridis',
-        hue='Признак',    # Присваиваем y переменной hue
-        legend=False      # Отключаем легенду, так как она здесь не нужна
+        hue='Признак',
+        legend=False
     )
     
     plt.title(f'Топ-{top_n} важных признаков\n{actual_model_name}', fontsize=14)

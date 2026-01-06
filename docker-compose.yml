@@ -1,24 +1,14 @@
- 
+version: '3.8'
+
 services:
+  python_app:
+    image: python:3.11-slim
+    volumes:
+      - .:/app
+    environment:
+      - DB_HOST=my-postgres
+    network_mode: "host"
+
   postgres:
-    image: postgres:latest
-    env_file:
-      - .env
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/18/data
-
-  jupyter:
-    build: .
-    ports:
-      - "8888:8888"
-    volumes:
-      - ./notebooks:/home/jovyan/work
-    depends_on:
-      - postgres
-    env_file:
-      - .env
-
-volumes:
-  postgres_data:
+    external: true
+    name: my-postgres
